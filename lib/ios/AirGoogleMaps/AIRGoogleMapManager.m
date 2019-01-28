@@ -47,7 +47,13 @@ RCT_EXPORT_MODULE()
 {
   AIRGoogleMap *map = [AIRGoogleMap new];
   map.bridge = self.bridge;
-  map.delegate = self;
+    map.delegate = self;
+    map.settings.consumesGesturesInView = NO;
+
+    UIPanGestureRecognizer *drag = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleMapDrag:)];
+    [drag setMinimumNumberOfTouches:1];
+    [drag setMaximumNumberOfTouches:1];
+    [map addGestureRecognizer:drag];
   map.indoorDisplay.delegate = self;
   self.map = map;
   return map;
@@ -76,6 +82,7 @@ RCT_EXPORT_VIEW_PROPERTY(onMapReady, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onKmlReady, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onPress, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onLongPress, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPanDrag, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onUserLocationChange, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onMarkerPress, RCTDirectEventBlock)
@@ -583,6 +590,27 @@ RCT_EXPORT_METHOD(setIndoorActiveLevelIndex:(nonnull NSNumber *)reactTag
 - (void)mapView:(GMSMapView *)mapView didDragMarker:(GMSMarker *)marker {
   AIRGMSMarker *aMarker = (AIRGMSMarker *)marker;
   [aMarker.fakeMarker didDragMarker:aMarker];
+}
+
+#pragma mark Gesture Recognizer Handlers
+
+- (void)handleMapDrag:(UIPanGestureRecognizer*)recognizer {
+    AIRGoogleMap *map = (AIRGoogleMap *)recognizer.view;
+    if (!map.onPanDrag) return;
+    
+    CGPoint touchPoint = [recognizer locationInView:map];
+    CLLocationCoordinate2D coord = [map.projection coordinateForPoint:touchPoint];
+    map.onPanDrag(@{
+                    @"coordinate": @{
+                            @"latitude": @(coord.latitude),
+                            @"longitude": @(coord.longitude),
+                            },
+                    @"position": @{
+                            @"x": @(touchPoint.x),
+                            @"y": @(touchPoint.y),
+                            },
+                    });
+    
 }
 
 - (void) didChangeActiveBuilding: (nullable GMSIndoorBuilding *) building {
